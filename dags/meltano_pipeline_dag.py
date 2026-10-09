@@ -39,8 +39,9 @@ with DAG(
         image_pull_policy="IfNotPresent",
         
         cmds=["/bin/sh", "-c"],
+        # Captura o retorno do Meltano ($?) e encerra o container com o código REAL dele
         arguments=[
-            "cd /project && meltano --environment=prod run tap-csv target-postgres"
+            "cd /project && meltano --environment=prod run tap-csv target-postgres; EXIT_CODE=$?; echo 'Meltano finalizado com codigo:' $EXIT_CODE; exit $EXIT_CODE"
         ],
         
         secrets=[secret_user, secret_password, secret_db],
@@ -56,6 +57,5 @@ with DAG(
         
         get_logs=True,
         in_cluster=True,
-        # ALTERAÇÃO CRUCIAL: Mantém o pod vivo no cluster após terminar para você coletar os logs
         on_finish_action="keep_pod" 
     )
