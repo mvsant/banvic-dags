@@ -63,7 +63,7 @@ with DAG(
         
         # Plain-text environment targets can remain explicitly here
         env_vars={
-            'TARGET_POSTGRES_HOST': 'postgres-service.default.svc.cluster.local',
+            'TARGET_POSTGRES_HOST': 'postgres-service.postgres.svc.cluster.local',
             'TARGET_POSTGRES_PORT': '5432'
         },
         
