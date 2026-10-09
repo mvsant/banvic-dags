@@ -1,0 +1,48 @@
+version: 1
+default_environment: prod
+environments:
+  - name: prod
+    config:
+      plugins:
+        extractors:
+          - name: tap-csv
+            variant: meltanolabs
+            pip_url: git+https://github.com/MeltanoLabs/tap-csv.git
+            config:
+              files:
+                - entity: agencias          # Change this to your preferred target table name
+                  path: /project/extract/agencias.csv  # Points directly to your K8s RWX PVC mount
+                  keys: [cod_agencia]
+                  dialect:
+                    delimiter: ','
+                - entity: colaboradores
+                  path: /project/extract/colaboradores.csv
+                  keys: [cod_colaborador]
+                  dialect:
+                    delimiter: ','                       # Primary key of your CSV rows
+        loaders:
+          - name: target-postgres
+            variant: meltanolabs
+            pip_url: meltanolabs-target-postgres
+            config:
+              # These map directly to the environment variables injected by the K8s Job
+              dialect+driver: postgresql+psycopg
+              host: ${TARGET_POSTGRES_HOST}
+              port: ${TARGET_POSTGRES_PORT}
+              user: ${TARGET_POSTGRES_USER}
+              password: ${TARGET_POSTGRES_PASSWORD}
+              database: ${TARGET_POSTGRES_DBNAME}
+              # Using the standard modern schema approach
+              default_target_schema: public
+
+plugins:
+  extractors:
+    - name: tap-csv
+      variant: meltanolabs
+  loaders:
+    - name: target-postgres
+      variant: meltanolabs
+  transformers:
+    - name: dbt-postgres
+      variant: dbt-labs
+      pip_url: dbt-core dbt-postgres
