@@ -16,7 +16,7 @@ secret_user = Secret(deploy_type='env', deploy_target='TARGET_POSTGRES_USER', se
 secret_password = Secret(deploy_type='env', deploy_target='TARGET_POSTGRES_PASSWORD', secret='postgres-credentials', key='POSTGRES_PASSWORD')
 secret_db = Secret(deploy_type='env', deploy_target='TARGET_POSTGRES_DBNAME', secret='postgres-credentials', key='POSTGRES_DB')
 
-# Configuração de Volumes Compartilhados (Mapeando o namespace meltano)
+# Configuração de Volumes Compartilhados
 pvc_volume = k8s.V1Volume(
     name='csv-ingestion-volume',
     persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name='meltano-csv-pvc')
@@ -33,13 +33,11 @@ with DAG(
     catchup=False
 ) as dag:
 
-    # Tarefa Única e Robusta: Executa a extração e a carga no banco em um único fluxo estável
     sync_csv_to_postgres = KubernetesPodOperator(
-        namespace="meltano", # Roda no namespace onde o volume físico está disponível
+        namespace="meltano", 
         image="meltano-pipeline:v1",
         image_pull_policy="IfNotPresent",
         
-        # Usamos o shell para garantir que o comando execute dentro da pasta certa (/project)
         cmds=["/bin/sh", "-c"],
         arguments=[
             "cd /project && meltano --environment=prod run tap-csv target-postgres"
@@ -58,5 +56,6 @@ with DAG(
         
         get_logs=True,
         in_cluster=True,
-        on_finish_action="delete_pod" # Remove o pod após o sucesso para liberar recursos do cluster
+        # ALTERAÇÃO CRUCIAL: Mantém o pod vivo no cluster após terminar para você coletar os logs
+        on_finish_action="keep_pod" 
     )
