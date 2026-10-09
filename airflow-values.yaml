@@ -1,0 +1,17 @@
+images:
+  airflow:
+    repository: banvic-dags
+    tag: 0.0.1
+
+dags:
+  persistence:
+    enabled: false
+
+  gitSync:
+    enabled: true
+    repo: https://github.com/mvsant/banvic-dags.git
+    branch: master
+    ref: master
+    depth: 1
+    subPath: dags
+    period: 10s

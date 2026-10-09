@@ -24,7 +24,7 @@ with DAG(
     # This operator sends a minimal query directly to your standalone db instance
     test_connection = SQLExecuteQueryOperator(
         task_id='confirm_it_works',
-        conn_id='standalone_postgres',  # <-- This ID matches your Airflow connection manager string
+        conn_id='Banvic_Postgres',  # <-- This ID matches your Airflow connection manager string
         sql="SELECT 'Meltano infrastructure pipeline verification: IT WORKS!!!' as confirmation_message;",
     )
 
