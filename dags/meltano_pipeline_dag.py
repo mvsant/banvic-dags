@@ -11,12 +11,12 @@ default_args = {
     'retries': 1,
 }
 
-# 1. Configuração Segura de Segredos (Mantida)
+# Configuração Segura de Segredos
 secret_user = Secret(deploy_type='env', deploy_target='TARGET_POSTGRES_USER', secret='postgres-credentials', key='POSTGRES_USER')
 secret_password = Secret(deploy_type='env', deploy_target='TARGET_POSTGRES_PASSWORD', secret='postgres-credentials', key='POSTGRES_PASSWORD')
 secret_db = Secret(deploy_type='env', deploy_target='TARGET_POSTGRES_DBNAME', secret='postgres-credentials', key='POSTGRES_DB')
 
-# 2. Configuração de Volumes Compartilhados (Mantida)
+# Configuração de Volumes Compartilhados (Mapeando o namespace meltano)
 pvc_volume = k8s.V1Volume(
     name='csv-ingestion-volume',
     persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name='meltano-csv-pvc')
@@ -26,67 +26,37 @@ pvc_volume_mount = k8s.V1VolumeMount(
     mount_path='/project/extract'
 )
 
-# Definição da DAG com a estrutura corrigida e tarefas separadas
 with DAG(
-    'meltano_csv_to_postgres_v2',
+    'meltano_csv_to_postgres_final',
     default_args=default_args,
-    schedule='0 * * * *',  # Executa de hora em hora
+    schedule='0 * * * *',
     catchup=False
 ) as dag:
 
-    # Tarefa 1: Extração e Isolamento dos dados do CSV (Apenas Tap)
-    extract_csv_data = KubernetesPodOperator(
-        namespace="meltano",
+    # Tarefa Única e Robusta: Executa a extração e a carga no banco em um único fluxo estável
+    sync_csv_to_postgres = KubernetesPodOperator(
+        namespace="meltano", # Roda no namespace onde o volume físico está disponível
         image="meltano-pipeline:v1",
         image_pull_policy="IfNotPresent",
+        
+        # Usamos o shell para garantir que o comando execute dentro da pasta certa (/project)
         cmds=["/bin/sh", "-c"],
-        
-        # O 'sleep 1800' garante que o Pod ficará aberto por 30 minutos na infra
         arguments=[
-            "meltano --environment=prod invoke tap-csv; echo 'Mantendo pod vivo para analise...'; sleep 1800"
+            "cd /project && meltano --environment=prod run tap-csv target-postgres"
         ],
         
-        # ATENÇÃO: Força o Airflow a NÃO deletar o Pod do Kubernetes após a execução
-        on_finish_action="keep_pod", 
-        
-        volumes=[pvc_volume],
-        volume_mounts=[pvc_volume_mount],
-        name="meltano-extract-worker",
-        task_id="extract_csv_to_storage",
-        get_logs=True,
-        in_cluster=True,
-    )
-
-    # Tarefa 2: Carga e Sincronização no Banco de Dados (Apenas Target)
-    load_to_postgres = KubernetesPodOperator(
-        namespace="meltano",
-        image="meltano-pipeline:v1",
-        image_pull_policy="IfNotPresent",
-        cmds=["meltano"],
-        arguments=[
-            "--environment=prod",
-            "run",
-            "tap-csv",         # O Meltano exige o mapeamento completo no comando 'run'
-            "target-postgres", # para entender o schema de origem e destino
-        ],
         secrets=[secret_user, secret_password, secret_db],
         env_vars={
             "TARGET_POSTGRES_HOST": "postgres-service.postgres.svc.cluster.local",
             "TARGET_POSTGRES_PORT": "5432",
         },
-        container_resources=k8s.V1Container(
-            name="base", # Nome padrão que o Airflow dá ao container principal
-            working_dir="/project" # <--- Diretório definido via modelo do K8s
-        ),
+        
         volumes=[pvc_volume],
         volume_mounts=[pvc_volume_mount],
-        name="meltano-load-worker",
-        task_id="load_storage_to_postgres",
+        name="meltano-sync-worker",
+        task_id="sync_csv_to_postgres",
+        
         get_logs=True,
-        #startup_timeout_seconds=30,
         in_cluster=True,
-        on_finish_action="delete_pod", # Alterado para 'delete_pod' para poupar recursos do cluster
+        on_finish_action="delete_pod" # Remove o pod após o sucesso para liberar recursos do cluster
     )
-
-    # Fluxo de execução de dependência (Task Flow)
-    extract_csv_data >> load_to_postgres
