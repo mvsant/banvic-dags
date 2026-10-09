@@ -36,7 +36,7 @@ with DAG(
 
     # Tarefa 1: Extração e Isolamento dos dados do CSV (Apenas Tap)
     extract_csv_data = KubernetesPodOperator(
-        namespace="airflow",
+        namespace="meltano", # <--- Mudado de "airflow" para "meltano"
         image="meltano-pipeline:v1",
         image_pull_policy="IfNotPresent",
         cmds=["meltano"],
@@ -56,7 +56,7 @@ with DAG(
 
     # Tarefa 2: Carga e Sincronização no Banco de Dados (Apenas Target)
     load_to_postgres = KubernetesPodOperator(
-        namespace="airflow",
+        namespace="meltano",
         image="meltano-pipeline:v1",
         image_pull_policy="IfNotPresent",
         cmds=["meltano"],
