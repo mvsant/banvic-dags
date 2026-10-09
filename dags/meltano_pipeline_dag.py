@@ -39,7 +39,6 @@ with DAG(
         image_pull_policy="IfNotPresent",
         
         cmds=["/bin/sh", "-c"],
-        # Executa o comando de forma limpa e natural, confiando no fluxo do sistema
         arguments=[
             "cd /project && meltano --environment=prod run tap-csv target-postgres"
         ],
@@ -58,10 +57,14 @@ with DAG(
         get_logs=True,
         in_cluster=True,
         
-        # SOLUÇÃO DO PROBLEMA:
-        # Mantém o pod ativo tempo suficiente para o Airflow ler o sucesso coletando os metadados...
+        # Mantém o pod ativo para o Airflow ler o sucesso legítimo
         on_finish_action="keep_pod",
         
-        # ...E deixa que o próprio Kubernetes delete o Pod sozinho 60 segundos após o término para não acumular lixo!
-        ttl_seconds_after_finished=60
+        # Injeta o TTL de 60 segundos de forma nativa na especificação do Pod do K8s
+        full_pod_spec=k8s.V1Pod(
+            spec=k8s.V1PodSpec(
+                containers=[], # O Airflow preencherá automaticamente com a imagem acima
+                ttl_seconds_after_finished=60
+            )
+        )
     )
