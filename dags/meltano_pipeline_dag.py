@@ -36,25 +36,23 @@ with DAG(
 
     # Tarefa 1: Extração e Isolamento dos dados do CSV (Apenas Tap)
     extract_csv_data = KubernetesPodOperator(
-        namespace="meltano", # <--- Mudado de "airflow" para "meltano"
+        namespace="meltano",
         image="meltano-pipeline:v1",
         image_pull_policy="IfNotPresent",
-        cmds=["meltano"],
+        
+        # Mudamos de "meltano" direto para um interpretador de comandos Sh
+        cmds=["/bin/sh", "-c"],
+        
+        # Passamos a mudança de diretório e a execução em uma linha só
         arguments=[
-            "--environment=prod",
-            "invoke",
-            "tap-csv",
+            "cd /project && meltano --environment=prod invoke tap-csv"
         ],
-        container_resources=k8s.V1Container(
-            name="base", # Nome padrão que o Airflow dá ao container principal
-            working_dir="/project" # <--- Diretório definido via modelo do K8s
-        ),
+        
         volumes=[pvc_volume],
         volume_mounts=[pvc_volume_mount],
         name="meltano-extract-worker",
         task_id="extract_csv_to_storage",
         get_logs=True,
-        #startup_timeout_seconds=30,
         in_cluster=True,
     )
 
