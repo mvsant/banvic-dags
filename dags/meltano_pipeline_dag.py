@@ -38,10 +38,13 @@ with DAG(
         image="meltano-pipeline:v1",
         image_pull_policy="IfNotPresent",
         
-        cmds=["/bin/sh", "-c"],
-        # Captura o retorno do Meltano ($?) e encerra o container com o código REAL dele
+        # Chamamos o binário diretamente, sem envelopar em /bin/sh
+        cmds=["meltano"],
         arguments=[
-            "cd /project && meltano --environment=prod run tap-csv target-postgres; EXIT_CODE=$?; echo 'Meltano finalizado com codigo:' $EXIT_CODE; exit $EXIT_CODE"
+            "--environment=prod",
+            "run",
+            "tap-csv",
+            "target-postgres"
         ],
         
         secrets=[secret_user, secret_password, secret_db],
@@ -55,6 +58,7 @@ with DAG(
         name="meltano-sync-worker",
         task_id="sync_csv_to_postgres",
         
+        # Mantemos ativo o monitoramento padrão
         get_logs=True,
         in_cluster=True,
         on_finish_action="keep_pod" 
