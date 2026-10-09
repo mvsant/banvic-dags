@@ -39,9 +39,9 @@ with DAG(
         image_pull_policy="IfNotPresent",
         
         cmds=["/bin/sh", "-c"],
-        # Retorna sucesso imediato após a execução para evitar o erro de checagem Forbidden do Airflow
+        # Executa o comando de forma limpa e natural, confiando no fluxo do sistema
         arguments=[
-            "cd /project && meltano --environment=prod run tap-csv target-postgres; exit 0"
+            "cd /project && meltano --environment=prod run tap-csv target-postgres"
         ],
         
         secrets=[secret_user, secret_password, secret_db],
@@ -57,5 +57,11 @@ with DAG(
         
         get_logs=True,
         in_cluster=True,
-        on_finish_action="delete_pod" # Remove o pod automaticamente para limpar o namespace meltano
+        
+        # SOLUÇÃO DO PROBLEMA:
+        # Mantém o pod ativo tempo suficiente para o Airflow ler o sucesso coletando os metadados...
+        on_finish_action="keep_pod",
+        
+        # ...E deixa que o próprio Kubernetes delete o Pod sozinho 60 segundos após o término para não acumular lixo!
+        ttl_seconds_after_finished=60
     )
