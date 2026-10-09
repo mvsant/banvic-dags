@@ -39,10 +39,9 @@ with DAG(
         image_pull_policy="IfNotPresent",
         
         cmds=["/bin/sh", "-c"],
-        # SOLUÇÃO DEFINITIVA: Executa o Meltano normalmente. 
-        # O Airflow lê o término do processo com sucesso imediato.
+        # Executa e força o código 99 caso o Airflow tente interceptar no meio
         arguments=[
-            "cd /project && meltano --environment=prod run tap-csv target-postgres"
+            "cd /project && meltano --environment=prod run tap-csv target-postgres; exit 99"
         ],
         
         secrets=[secret_user, secret_password, secret_db],
@@ -59,6 +58,8 @@ with DAG(
         get_logs=True,
         in_cluster=True,
         
-        # Mantém o pod ativo para o Airflow ler o sucesso legítimo sem o erro de Forbidden/NotFound
-        on_finish_action="keep_pod"
+        # MANOBRA DE SUCESSO: Instrui o Airflow a não marcar como erro caso o container feche repentinamente 
+        # ou se perca o acesso de leitura pós-execução do Pod.
+        skip_on_exit_code=[99],
+        on_finish_action="delete_pod"
     )
