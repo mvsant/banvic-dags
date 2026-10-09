@@ -50,7 +50,7 @@ with DAG(
         name="meltano-extract-worker",
         task_id="extract_csv_to_storage",
         get_logs=True,
-        startup_timeout_seconds=30,
+        #startup_timeout_seconds=30,
         in_cluster=True,
     )
 
@@ -76,7 +76,7 @@ with DAG(
         name="meltano-load-worker",
         task_id="load_storage_to_postgres",
         get_logs=True,
-        startup_timeout_seconds=30,
+        #startup_timeout_seconds=30,
         in_cluster=True,
         on_finish_action="delete_pod", # Alterado para 'delete_pod' para poupar recursos do cluster
     )
