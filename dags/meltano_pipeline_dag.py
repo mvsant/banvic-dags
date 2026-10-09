@@ -57,13 +57,13 @@ with DAG(
         get_logs=True,
         in_cluster=True,
         
-        # Mantém o pod ativo para o Airflow ler o sucesso legítimo
+        # Diz ao Airflow para não deletar o Pod imediatamente (evita o erro Forbidden/NotFound)
         on_finish_action="keep_pod",
         
-        # Injeta o TTL de 60 segundos de forma nativa na especificação do Pod do K8s
-        full_pod_spec=k8s.V1Pod(
+        # SINTAXE CORRETA: Sobrescreve a especificação do Pod injetando o TTL nativo do K8s
+        pod_override=k8s.V1Pod(
             spec=k8s.V1PodSpec(
-                containers=[], # O Airflow preencherá automaticamente com a imagem acima
+                containers=[], # Deixe vazio; o Airflow vai mesclar com o container principal
                 ttl_seconds_after_finished=60
             )
         )
