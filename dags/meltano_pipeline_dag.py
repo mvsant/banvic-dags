@@ -50,25 +50,41 @@ with DAG(
 
     # 3. Execute the Operator Task Container
     # Inside your dags/meltano_pipeline_dag.py script file:
-    run_meltano_pipeline = KubernetesPodOperator(
-        namespace='airflow',  # <--- MUST MATCH YOUR NEW AIRFLOW HELM NAMESPACE
-        image='meltano-pipeline:v1', # Uses your perfect working v1 image
-        cmds=["meltano"],
-        arguments=["--environment=prod", "run", "tap-csv", "target-postgres"],
-        # ... keep secrets and volumes exactly the same ...
+run_meltano_pipeline = KubernetesPodOperator(
+    namespace="airflow",
+    image="meltano-pipeline:v1",
+    image_pull_policy="IfNotPresent",
 
-        
-        # Injects your database credentials into the container runtime securely
-        secrets=[secret_user, secret_password, secret_db],
-        
-        # Plain-text environment targets can remain explicitly here
-        env_vars={
-            'TARGET_POSTGRES_HOST': 'postgres-service.postgres.svc.cluster.local',
-            'TARGET_POSTGRES_PORT': '5432'
-        },
-        
-        name="meltano-sync-worker",
-        task_id="sync_csv_to_postgres",
-        get_logs=True,
-        in_cluster=True
+    cmds=["meltano"],
+    arguments=[
+        "--environment=prod",
+        "run",
+        "tap-csv",
+        "target-postgres",
+    ],
+
+    secrets=[
+        secret_user,
+        secret_password,
+        secret_db,
+    ],
+
+    env_vars={
+        "TARGET_POSTGRES_HOST": "postgres-service.postgres.svc.cluster.local",
+        "TARGET_POSTGRES_PORT": "5432",
+    },
+
+    volumes=[pvc_volume],
+    volume_mounts=[pvc_volume_mount],
+
+    name="meltano-sync-worker",
+    task_id="sync_csv_to_postgres",
+
+    get_logs=True,
+    container_logs=["base"],
+    log_events_on_failure=True,
+    on_finish_action="keep_pod",
+
+    in_cluster=True,
+
     )
