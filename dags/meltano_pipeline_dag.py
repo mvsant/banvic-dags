@@ -39,6 +39,8 @@ with DAG(
         image_pull_policy="IfNotPresent",
         
         cmds=["/bin/sh", "-c"],
+        # SOLUÇÃO DEFINITIVA: Executa o Meltano normalmente. 
+        # O Airflow lê o término do processo com sucesso imediato.
         arguments=[
             "cd /project && meltano --environment=prod run tap-csv target-postgres"
         ],
@@ -57,14 +59,6 @@ with DAG(
         get_logs=True,
         in_cluster=True,
         
-        # Diz ao Airflow para não deletar o Pod imediatamente (evita o erro Forbidden/NotFound)
-        on_finish_action="keep_pod",
-        
-        # SINTAXE CORRETA: Sobrescreve a especificação do Pod injetando o TTL nativo do K8s
-        pod_override=k8s.V1Pod(
-            spec=k8s.V1PodSpec(
-                containers=[], # Deixe vazio; o Airflow vai mesclar com o container principal
-                ttl_seconds_after_finished=60
-            )
-        )
+        # Mantém o pod ativo para o Airflow ler o sucesso legítimo sem o erro de Forbidden/NotFound
+        on_finish_action="keep_pod"
     )
