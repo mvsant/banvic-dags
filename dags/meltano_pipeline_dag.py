@@ -45,7 +45,10 @@ with DAG(
             "invoke",
             "tap-csv",
         ],
-        working_dir="/project",
+        container_resources=k8s.V1Container(
+            name="base", # Nome padrão que o Airflow dá ao container principal
+            working_dir="/project" # <--- Diretório definido via modelo do K8s
+        ),
         volumes=[pvc_volume],
         volume_mounts=[pvc_volume_mount],
         name="meltano-extract-worker",
@@ -72,7 +75,10 @@ with DAG(
             "TARGET_POSTGRES_HOST": "postgres-service.postgres.svc.cluster.local",
             "TARGET_POSTGRES_PORT": "5432",
         },
-        working_dir="/project",
+        container_resources=k8s.V1Container(
+            name="base", # Nome padrão que o Airflow dá ao container principal
+            working_dir="/project" # <--- Diretório definido via modelo do K8s
+        ),
         volumes=[pvc_volume],
         volume_mounts=[pvc_volume_mount],
         name="meltano-load-worker",
