@@ -39,14 +39,15 @@ with DAG(
         namespace="meltano",
         image="meltano-pipeline:v1",
         image_pull_policy="IfNotPresent",
-        
-        # Mudamos de "meltano" direto para um interpretador de comandos Sh
         cmds=["/bin/sh", "-c"],
         
-        # Passamos a mudança de diretório e a execução em uma linha só
+        # O 'sleep 1800' garante que o Pod ficará aberto por 30 minutos na infra
         arguments=[
-            "cd /project && meltano --environment=prod invoke tap-csv"
+            "meltano --environment=prod invoke tap-csv; echo 'Mantendo pod vivo para analise...'; sleep 1800"
         ],
+        
+        # ATENÇÃO: Força o Airflow a NÃO deletar o Pod do Kubernetes após a execução
+        on_finish_action="keep_pod", 
         
         volumes=[pvc_volume],
         volume_mounts=[pvc_volume_mount],
