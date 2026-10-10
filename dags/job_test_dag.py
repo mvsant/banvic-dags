@@ -83,5 +83,5 @@ with DAG(
         get_logs=True,
         in_cluster=True,
         # Deleta o recurso do Job após a execução (com sucesso ou falha) para não entulhar o cluster
-        on_finish_action="delete_job" 
+        on_finish_action="delete_pod" 
     )
