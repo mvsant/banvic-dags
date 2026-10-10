@@ -64,7 +64,7 @@ with DAG(
         arguments=[
             "exec meltano --environment=prod run tap-csv target-postgres"
         ],
-        working_dir="/project",
+        #working_dir="/project",
         secrets=[secret_user, secret_password, secret_db],
         env_vars={
             "TARGET_POSTGRES_HOST": "postgres-service.postgres.svc.cluster.local",

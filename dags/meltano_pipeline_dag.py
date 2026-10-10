@@ -60,6 +60,6 @@ with DAG(
         
         # MANOBRA DE SUCESSO: Instrui o Airflow a não marcar como erro caso o container feche repentinamente 
         # ou se perca o acesso de leitura pós-execução do Pod.
-        skip_on_exit_code=[99],
+        #skip_on_exit_code=[99],
         on_finish_action="delete_pod"
     )
