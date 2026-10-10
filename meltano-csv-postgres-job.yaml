@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: meltano-csv-to-postgres-job
+  namespace: meltano
+spec:
+  template:
+    metadata:
+      labels:
+        app: meltano-pipeline
+    spec:
+      containers:
+        - name: meltano-worker
+          # Use your custom built image here
+          image: meltano-pipeline:v1
+          # Tell Kubernetes to look locally if you aren't pushing to a remote registry
+          imagePullPolicy: IfNotPresent
+          # Run the execution command directly without wrapper shell strings
+          command: ["meltano"]
+          args: ["--environment=prod", "run", "tap-csv", "target-postgres"]
+          volumeMounts:
+            # You ONLY need to mount the actual raw CSV source directory now!
+            - name: csv-ingestion-volume
+              mountPath: /project/extract  
+          env:
+            - name: TARGET_POSTGRES_HOST
+              value: "postgres-service.postgres.svc.cluster.local"
+            - name: TARGET_POSTGRES_PORT
+              value: "5432"
+            - name: TARGET_POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: TARGET_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: TARGET_POSTGRES_DBNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_DB
+      restartPolicy: OnFailure
+      volumes:
+        - name: csv-ingestion-volume
+          persistentVolumeClaim:
+            claimName: meltano-csv-pvc
