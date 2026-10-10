@@ -41,7 +41,7 @@ with DAG(
         cmds=["/bin/sh", "-c"],
         # Executa e força o código 99 caso o Airflow tente interceptar no meio
         arguments=[
-            "cd /project && meltano --environment=prod run tap-csv target-postgres; exit 99"
+            "cd /project && meltano --environment=prod run tap-csv target-postgres; echo 'Aguardando 30 segundos antes de fechar o pod...'; sleep 30; exit 99"
         ],
         
         secrets=[secret_user, secret_password, secret_db],
