@@ -26,7 +26,7 @@ pvc_volume_mount = k8s.V1VolumeMount(
 )
 
 with DAG(
-    'v2_postgres_target_csv_dag',
+    'v2_tmp_postgres_target_csv_dag',
     default_args=default_args,
     description='Meltano data extraction pipeline with dynamic runtime output paths',
     schedule=None,
