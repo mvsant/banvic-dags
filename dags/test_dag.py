@@ -47,13 +47,13 @@ pvc_volume_mount = k8s.V1VolumeMount(
 )
 
 with DAG(
-    dag_id="redacted_meltano_csv_to_postgres_final",
+    dag_id="test_tap_postgres_target_csv_dag",
     default_args=default_args,
     schedule="0 * * * *",
     catchup=False,
 ) as dag:
-    sync_csv_to_postgres = KubernetesPodOperator(
-        task_id="sync_csv_to_postgres",
+    sync_postgres_to_csv = KubernetesPodOperator(
+        task_id="sync_postgres_to_csv",
         name="meltano-sync-worker",
         namespace="meltano",
         image="meltano-pipeline:v1",
@@ -62,7 +62,7 @@ with DAG(
         # O exit code do Meltano sera propagado diretamente ao Airflow:
         # 0 = sucesso; qualquer outro valor = falha.
         arguments=[
-            "exec meltano --environment=prod run tap-csv target-postgres"
+            "exec meltano --environment=prod run tap-postgres target-csv"
         ],
         #working_dir="/project",
         secrets=[secret_user, secret_password, secret_db],

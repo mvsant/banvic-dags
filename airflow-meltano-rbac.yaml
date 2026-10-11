@@ -1,0 +1,27 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: airflow-pod-manager-role
+  namespace: meltano # <--- Onde as permissões serão aplicadas
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec"]
+    verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: airflow-meltano-binding
+  namespace: meltano # <--- Onde o vínculo vai operar
+subjects:
+  - kind: ServiceAccount
+    name: banvic-release-airflow-worker # <--- A conta informada no erro
+    namespace: airflow                  # <--- O namespace de onde o Airflow opera
+roleRef:
+  kind: Role
+  name: airflow-pod-manager-role        # <--- Referência à regra acima
+  apiGroup: rbac.authorization.k8s.io

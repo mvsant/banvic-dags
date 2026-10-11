@@ -1,48 +1,79 @@
 version: 1
 default_environment: prod
 environments:
-  - name: prod
-    config:
-      plugins:
-        extractors:
-          - name: tap-csv
-            variant: meltanolabs
-            pip_url: git+https://github.com/MeltanoLabs/tap-csv.git
-            config:
-              files:
-                - entity: agencias          # Change this to your preferred target table name
-                  path: /project/extract/agencias.csv  # Points directly to your K8s RWX PVC mount
-                  keys: [cod_agencia]
-                  dialect:
-                    delimiter: ','
-                - entity: colaboradores
-                  path: /project/extract/colaboradores.csv
-                  keys: [cod_colaborador]
-                  dialect:
-                    delimiter: ','                       # Primary key of your CSV rows
-        loaders:
-          - name: target-postgres
-            variant: meltanolabs
-            pip_url: meltanolabs-target-postgres
-            config:
+- name: prod
+  config:
+    plugins:
+      extractors:
+      - name: tap-csv
+        config:
+          files:
+          - entity: agencias                # Change this to your preferred target table name
+            path: /project/extract/agencias.csv        # Points directly to your K8s RWX PVC mount
+            keys: [cod_agencia]
+            dialect:
+              delimiter: ','
+          - entity: colaboradores
+            path: /project/extract/colaboradores.csv
+            keys: [cod_colaborador]
+            dialect:
+              delimiter: ','                             # Primary key of your CSV rows
+        variant: meltanolabs
+        pip_url: git+https://github.com/MeltanoLabs/tap-csv.git
+      - name: tap-postgres
+        config:
               # These map directly to the environment variables injected by the K8s Job
-              dialect+driver: postgresql+psycopg
-              host: ${TARGET_POSTGRES_HOST}
-              port: ${TARGET_POSTGRES_PORT}
-              user: ${TARGET_POSTGRES_USER}
-              password: ${TARGET_POSTGRES_PASSWORD}
-              database: ${TARGET_POSTGRES_DBNAME}
+          dialect+driver: postgresql+psycopg
+          host: ${TARGET_POSTGRES_HOST}
+          port: ${TARGET_POSTGRES_PORT}
+          user: ${TARGET_POSTGRES_USER}
+          password: ${TARGET_POSTGRES_PASSWORD}
+          database: ${TARGET_POSTGRES_DBNAME}
               # Using the standard modern schema approach
-              default_target_schema: public
-
+          default_target_schema: public
+        variant: meltanolabs
+        pip_url: meltanolabs-target-postgres
+      loaders:
+      - name: target-postgres
+        config:
+              # These map directly to the environment variables injected by the K8s Job
+          dialect+driver: postgresql+psycopg
+          host: ${TARGET_POSTGRES_HOST}
+          port: ${TARGET_POSTGRES_PORT}
+          user: ${TARGET_POSTGRES_USER}
+          password: ${TARGET_POSTGRES_PASSWORD}
+          database: ${TARGET_POSTGRES_DBNAME}
+              # Using the standard modern schema approach
+          default_target_schema: public
+        variant: meltanolabs
+        pip_url: meltanolabs-target-postgres
+      - name: target-csv
+        config:
+          # Define a pasta de saída para o volume compartilhado do Kubernetes
+          output_path: /project/extract/output
+          # Garante que os arquivos terão a extensão .csv correta
+          file_naming_scheme: '{stream}.csv'
+        variant: meltanolabs
+        pip_url: git+https://github.com/MeltanoLabs/tap-csv.git
 plugins:
   extractors:
-    - name: tap-csv
-      variant: meltanolabs
+  - name: tap-csv
+    variant: meltanolabs
+  - name: tap-postgres
+    variant: meltanolabs
+    pip_url: meltanolabs-tap-postgres
   loaders:
-    - name: target-postgres
-      variant: meltanolabs
+  - name: target-postgres
+    variant: meltanolabs
+  - name: target-csv
+    variant: meltanolabs
+    pip_url: meltanolabs-target-csv
   transformers:
-    - name: dbt-postgres
-      variant: dbt-labs
-      pip_url: dbt-core dbt-postgres
+  - name: dbt-postgres
+    variant: dbt-labs
+    pip_url: dbt-core dbt-postgres
+  utilities:
+  - name: dbt-postgres
+    variant: dbt-labs
+    pip_url: dbt-core dbt-postgres meltano-dbt-ext~=0.5.0
+project_id: 01a123c3-2974-7262-b81c-cc39c29fe2e6
