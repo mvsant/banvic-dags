@@ -60,7 +60,7 @@ with DAG(
         namespace='meltano',
         image='meltano-pipeline:v1',
         cmds=["/bin/sh", "-c"],
-        arguments=["meltano --environment=prod run tap-csv target-postgres --select agencias"],
+        arguments=["meltano --environment=prod run tap-csv--agencias target-postgres"],
         volumes=[pvc_volume],
         volume_mounts=[pvc_volume_mount],
         env_vars=[...] # Add your Postgres secrets configuration here
@@ -73,7 +73,7 @@ with DAG(
         namespace='meltano',
         image='meltano-pipeline:v1',
         cmds=["/bin/sh", "-c"],
-        arguments=["meltano --environment=prod run tap-csv target-postgres --select colaboradores"],
+        arguments=["meltano --environment=prod run tap-csv--colaboradores target-postgres"],
         volumes=[pvc_volume],
         volume_mounts=[pvc_volume_mount],
           env_vars={
