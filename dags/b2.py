@@ -17,7 +17,7 @@ default_args = {
 # Define the persistent volume mount configuration
 pvc_volume = k8s.V1Volume(
     name="csv-ingestion-volume",
-    persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claimName="meltano-csv-pvc")
+    persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name="meltano-csv-pvc")
 )
 
 pvc_volume_mount = k8s.V1VolumeMount(
