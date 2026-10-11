@@ -22,7 +22,7 @@ pvc_volume = k8s.V1Volume(
 
 pvc_volume_mount = k8s.V1VolumeMount(
     name="csv-ingestion-volume",
-    mountPath="/project/extract"
+    mount_path="/project/extract"
 )
 
 with DAG(
