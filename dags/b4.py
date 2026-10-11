@@ -63,7 +63,10 @@ with DAG(
         arguments=["meltano --environment=prod run tap-csv--agencias target-postgres"],
         volumes=[pvc_volume],
         volume_mounts=[pvc_volume_mount],
-        env_vars=[...] # Add your Postgres secrets configuration here
+          env_vars={
+            'TARGET_POSTGRES_HOST': 'postgres-service.postgres.svc.cluster.local',
+            'TARGET_POSTGRES_PORT': '5432',
+        }
     )
 
     # TASK 2: Sync ONLY Colaboradores
