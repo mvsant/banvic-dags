@@ -76,7 +76,10 @@ with DAG(
         arguments=["meltano --environment=prod run tap-csv target-postgres --select colaboradores"],
         volumes=[pvc_volume],
         volume_mounts=[pvc_volume_mount],
-        env_vars=[...] # Add your Postgres secrets configuration here
+          env_vars={
+            'TARGET_POSTGRES_HOST': 'postgres-service.postgres.svc.cluster.local',
+            'TARGET_POSTGRES_PORT': '5432',
+        }
     )
 
     # Run them both at the exact same time (Parallel Execution)
