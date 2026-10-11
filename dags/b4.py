@@ -63,7 +63,8 @@ with DAG(
         arguments=["meltano --environment=prod run tap-csv--agencias target-postgres"],
         volumes=[pvc_volume],
         volume_mounts=[pvc_volume_mount],
-          env_vars={
+        secrets=[secret_user, secret_password, secret_db],  # <-- ADDED SECRETS HERE
+        env_vars={
             'TARGET_POSTGRES_HOST': 'postgres-service.postgres.svc.cluster.local',
             'TARGET_POSTGRES_PORT': '5432',
         }
@@ -79,7 +80,8 @@ with DAG(
         arguments=["meltano --environment=prod run tap-csv--colaboradores target-postgres"],
         volumes=[pvc_volume],
         volume_mounts=[pvc_volume_mount],
-          env_vars={
+        secrets=[secret_user, secret_password, secret_db],  # <-- ADDED SECRETS HERE
+        env_vars={
             'TARGET_POSTGRES_HOST': 'postgres-service.postgres.svc.cluster.local',
             'TARGET_POSTGRES_PORT': '5432',
         }
