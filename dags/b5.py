@@ -94,8 +94,8 @@ with DAG(
         namespace='meltano',
         image='meltano-pipeline:v1',
         cmds=["/bin/sh", "-c"],
-        # This initializes dbt profiles and runs your project models
-        arguments=["meltano --environment=prod invoke dbt-postgres:run"],
+        # --- FIXED: Added mkdir -p /project/transform before running meltano ---
+        arguments=["mkdir -p /project/transform && meltano --environment=prod invoke dbt-postgres:run"],
         secrets=[secret_user, secret_password, secret_db],
         env_vars={
             'TARGET_POSTGRES_HOST': 'postgres-service.postgres.svc.cluster.local',
