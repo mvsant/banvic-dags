@@ -94,8 +94,13 @@ with DAG(
         namespace='meltano',
         image='meltano-pipeline:v1',
         cmds=["/bin/sh", "-c"],
-        # --- FIXED: Added dbt initialization sequence before run ---
-        arguments=["mkdir -p /project/transform && meltano --environment=prod invoke dbt-postgres:initialize && meltano --environment=prod invoke dbt-postgres:run"],
+        # --- FIXED: Generates dbt directory, writes a template project config, and compiles profiles ---
+        arguments=[
+            "mkdir -p /project/transform/models && "
+            "echo \"name: 'my_project'\\nversion: '1.0.0'\\nconfig-version: 2\\nprofile: 'postgres'\\nmodel-paths: ['models']\" > /project/transform/dbt_project.yml && "
+            "meltano --environment=prod invoke dbt-postgres:compile && "
+            "meltano --environment=prod invoke dbt-postgres:run"
+        ],
         secrets=[secret_user, secret_password, secret_db],
         env_vars={
             'TARGET_POSTGRES_HOST': 'postgres-service.postgres.svc.cluster.local',
