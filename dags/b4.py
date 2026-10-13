@@ -3,6 +3,7 @@ from datetime import datetime
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.providers.cncf.kubernetes.secret import Secret
+from airflow.models.baseoperator import cross_downstream
 from kubernetes.client import models as k8s
 
 
