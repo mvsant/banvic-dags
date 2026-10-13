@@ -5,69 +5,126 @@ environments:
   config:
     plugins:
       extractors:
-      - name: tap-csv
-        config:
-          files:
-          - entity: agencias                # Change this to your preferred target table name
-            path: /project/extract/agencias.csv        # Points directly to your K8s RWX PVC mount
-            keys: [cod_agencia]
-            dialect:
-              delimiter: ','
-          - entity: colaboradores
-            path: /project/extract/colaboradores.csv
-            keys: [cod_colaborador]
-            dialect:
-              delimiter: ','                             # Primary key of your CSV rows
-        variant: meltanolabs
-        pip_url: git+https://github.com/MeltanoLabs/tap-csv.git
+      # We explicitly declare the inherited names here so Meltano's 'prod' environment recognizes them
+      - name: tap-csv--agencias
+      - name: tap-csv--colaboradores
       - name: tap-postgres
+        select:
+        - "public-agencias.*"
+        - "public-colaboradores.*"
         config:
-              # These map directly to the environment variables injected by the K8s Job
           dialect+driver: postgresql+psycopg
           host: ${TARGET_POSTGRES_HOST}
           port: ${TARGET_POSTGRES_PORT}
           user: ${TARGET_POSTGRES_USER}
           password: ${TARGET_POSTGRES_PASSWORD}
           database: ${TARGET_POSTGRES_DBNAME}
-              # Using the standard modern schema approach
           default_target_schema: public
         variant: meltanolabs
         pip_url: meltanolabs-target-postgres
       loaders:
       - name: target-postgres
         config:
-              # These map directly to the environment variables injected by the K8s Job
           dialect+driver: postgresql+psycopg
           host: ${TARGET_POSTGRES_HOST}
           port: ${TARGET_POSTGRES_PORT}
           user: ${TARGET_POSTGRES_USER}
           password: ${TARGET_POSTGRES_PASSWORD}
           database: ${TARGET_POSTGRES_DBNAME}
-              # Using the standard modern schema approach
           default_target_schema: public
         variant: meltanolabs
         pip_url: meltanolabs-target-postgres
-      - name: target-csv
+
+      utilities:
+      - name: dbt-postgres
         config:
-          # Define a pasta de saída para o volume compartilhado do Kubernetes
-          output_path: /project/extract/output
-          # Garante que os arquivos terão a extensão .csv correta
-          file_naming_scheme: '{stream}.csv'
-        variant: meltanolabs
-        pip_url: git+https://github.com/MeltanoLabs/tap-csv.git
+          host: ${TARGET_POSTGRES_HOST}
+          port: ${TARGET_POSTGRES_PORT}
+          user: ${TARGET_POSTGRES_USER}
+          password: ${TARGET_POSTGRES_PASSWORD}
+          dbname: ${TARGET_POSTGRES_DBNAME}
+          schema: public 
+
 plugins:
   extractors:
   - name: tap-csv
     variant: meltanolabs
-  - name: tap-postgres
-    variant: meltanolabs
-    pip_url: meltanolabs-tap-postgres
+    pip_url: git+https://github.com/MeltanoLabs/tap-csv.git
+
+  # Inherited extractors by entities
+  - name: tap-csv--agencias
+    inherit_from: tap-csv
+    config:
+      files:
+      - entity: agencias
+        path: /project/extract/agencias.csv
+        keys: [cod_agencia]
+        dialect:
+          delimiter: ','
+
+  - name: tap-csv--clientes
+    inherit_from: tap-csv
+    config:
+      files:
+      - entity: clientes
+        path: /project/extract/clientes.csv
+        keys: [cod_cliente]
+        dialect:
+          delimiter: ','
+
+  - name: tap-csv--colaborador_agencia
+    inherit_from: tap-csv
+    config:
+      files:
+      - entity: colaborador_agencia
+        path: /project/extract/colaborador_agencia.csv
+        keys: [cod_colaborador]
+        dialect:
+          delimiter: ','
+
+  - name: tap-csv--colaboradores
+    inherit_from: tap-csv
+    config:
+      files:
+      - entity: colaboradores
+        path: /project/extract/colaboradores.csv
+        keys: [cod_colaborador]
+        dialect:
+          delimiter: ','
+
+  - name: tap-csv--contas
+    inherit_from: tap-csv
+    config:
+      files:
+      - entity: contas
+        path: /project/extract/contas.csv
+        keys: [num_conta]
+        dialect:
+          delimiter: ','
+
+  - name: tap-csv--propostas_credito
+    inherit_from: tap-csv
+    config:
+      files:
+      - entity: propostas_credito
+        path: /project/extract/propostas_credito.csv
+        keys: [cod_proposta]
+        dialect:
+          delimiter: ','
+
+  - name: tap-csv--transacoes
+    inherit_from: tap-csv
+    config:
+      files:
+      - entity: transacoes
+        path: /project/extract/transacoes.csv
+        keys: [cod_transacao]
+        dialect:
+          delimiter: ','
+
   loaders:
   - name: target-postgres
     variant: meltanolabs
-  - name: target-csv
-    variant: meltanolabs
-    pip_url: meltanolabs-target-csv
   transformers:
   - name: dbt-postgres
     variant: dbt-labs
