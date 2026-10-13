@@ -168,4 +168,7 @@ with DAG(
     )
 
     # Run them both at the exact same time (Parallel Execution)
-    [sync_agencias, sync_colaboradores, sync_colaborador_agencia] >> [sync_clientes, sync_contas, sync_propostas_credito] >> sync_transacoes
+    cross_downstream(
+    [sync_agencias, sync_colaboradores, sync_colaborador_agencia], 
+    [sync_clientes, sync_contas, sync_propostas_credito]
+) >>sync_transacoes
