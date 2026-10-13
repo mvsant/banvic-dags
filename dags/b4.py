@@ -170,6 +170,9 @@ with DAG(
 
     # Run them both at the exact same time (Parallel Execution)
     cross_downstream(
-    [sync_agencias, sync_colaboradores, sync_colaborador_agencia], 
-    [sync_clientes, sync_contas, sync_propostas_credito]
-) >>sync_transacoes
+        [sync_agencias, sync_colaboradores, sync_colaborador_agencia], 
+        [sync_clientes, sync_contas, sync_propostas_credito]
+    )
+
+    # 2. Map the second batch to the final upstream target independently
+    [sync_clientes, sync_contas, sync_propostas_credito] >> sync_transacoes
