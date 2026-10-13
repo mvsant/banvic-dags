@@ -7,7 +7,12 @@ environments:
       extractors:
       # We explicitly declare the inherited names here so Meltano's 'prod' environment recognizes them
       - name: tap-csv--agencias
+      - name: tap-csv--clientes              
+      - name: tap-csv--colaborador_agencia   
       - name: tap-csv--colaboradores
+      - name: tap-csv--contas                
+      - name: tap-csv--propostas_credito     
+      - name: tap-csv--transacoes            
       - name: tap-postgres
         select:
         - "public-agencias.*"
