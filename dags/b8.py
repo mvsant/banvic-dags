@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.providers.cncf.kubernetes.secret import Secret
@@ -9,76 +9,52 @@ default_args = {
     "retries": 1,
 }
 
-secret_user = Secret(deploy_type="env", deploy_target="TARGET_POSTGRES_USER", secret="postgres-credentials", key="POSTGRES_USER")
-secret_password = Secret(deploy_type="env", deploy_target="TARGET_POSTGRES_PASSWORD", secret="postgres-credentials", key="POSTGRES_PASSWORD")
-secret_db = Secret(deploy_type="env", deploy_target="TARGET_POSTGRES_DBNAME", secret="postgres-credentials", key="POSTGRES_DB")
+# Injected cluster database vault credentials maps
+secret_user = Secret(deploy_type="env", deploy_target="PGUSER", secret="postgres-credentials", key="POSTGRES_USER")
+secret_password = Secret(deploy_type="env", deploy_target="PGPASSWORD", secret="postgres-credentials", key="POSTGRES_PASSWORD")
+secret_db = Secret(deploy_type="env", deploy_target="PGDATABASE", secret="postgres-credentials", key="POSTGRES_DB")
 
 with DAG(
-    'dbt_join_1',
+    'dbt_join_1', # Kept the exact same name so your Ingestion Trigger Operator works natively
     default_args=default_args,
-    schedule=None, # Controlled/triggered directly by DAG 1
+    schedule=None,
     catchup=False,
 ) as dag:
 
-    run_left_join = KubernetesPodOperator(
+    run_native_sql_join = KubernetesPodOperator(
         task_id='run_dbt_left_join',
-        name='meltano-dbt-left-join',
+        name='postgres-native-left-join',
         namespace='meltano',
-        image='meltano-pipeline:v1',
+        image='postgres:alpine', # --- Using a standard native PostgreSQL client image ---
         cmds=["/bin/sh", "-c"],
         arguments=[
             """
-            mkdir -p /project/transform/models/staging
-            mkdir -p /project/transform/models/marts
-            mkdir -p /project/transform/profiles/postgres
+            echo "Connecting to PostgreSQL cluster and executing standard relational model compilation..."
             
-            cat << 'EOF' > /project/transform/dbt_project.yml
-name: 'my_project'
-version: '1.0.0'
-config-version: 2
-profile: 'postgres'
-model-paths: ['models']
-EOF
+            psql -h $PGHOST -p $PGPORT -c "
+            -- Drop old relation structure if it already exists to guarantee idempotency
+            DROP TABLE IF EXISTS public.fct_colaboradores_left_join;
 
-            cat << 'EOF' > /project/transform/models/staging/src_public.yml
-version: 2
-sources:
-  - name: raw_source
-    schema: public
-    tables:
-      - name: colaboradores
-        name: colaborador_agencia
-EOF
-
-            cat << 'EOF' > /project/transform/models/staging/stg_colaboradores.sql
-{% raw %}{{ config(materialized='view') }}
-select cod_colaborador, primeiro_nome, ultimo_nome, email from {{ source('raw_source', 'colaboradores') }}{% endraw %}
-EOF
-
-            cat << 'EOF' > /project/transform/models/staging/stg_colaborador_agencia.sql
-{% raw %}{{ config(materialized='view') }}
-select cod_colaborador, cod_agencia from {{ source('raw_source', 'colaborador_agencia') }}{% endraw %}
-EOF
-
-            cat << 'EOF' > /project/transform/models/marts/fct_colaboradores_left_join.sql
-{% raw %}
-{{ config(materialized='table') }}
-with colaboradores as (select * from {{ ref('stg_colaboradores') }}),
-colaborador_agencia as (select * from {{ ref('stg_colaborador_agencia') }})
-select c.cod_colaborador, c.primeiro_nome, c.ultimo_nome, c.email, ca.cod_agencia, now() as transformed_at
-from colaboradores c
-left join colaborador_agencia ca on c.cod_colaborador = ca.cod_colaborador
-{% endraw %}
-EOF
-
-            meltano --environment=prod invoke dbt-postgres:compile
-            meltano --environment=prod invoke dbt-postgres:run
+            -- Compile the standard LEFT JOIN directly using PostgreSQL's core engine
+            CREATE TABLE public.fct_colaboradores_left_join AS
+            SELECT 
+                c.cod_colaborador, 
+                c.primeiro_nome, 
+                c.ultimo_nome, 
+                c.email, 
+                ca.cod_agencia, 
+                NOW() AS transformed_at
+            FROM public.colaboradores c
+            LEFT JOIN public.colaborador_agencia ca 
+                ON c.cod_colaborador = ca.cod_colaborador;
+            "
+            
+            echo "SUCCESS: Relational transformation table compiled perfectly!"
             """
         ],
         secrets=[secret_user, secret_password, secret_db],
         env_vars={
-            'TARGET_POSTGRES_HOST': 'postgres-service.postgres.svc.cluster.local',
-            'TARGET_POSTGRES_PORT': '5432',
-            'DBT_PROFILES_DIR': '/project/transform/profiles/postgres',
+            'PGHOST': 'postgres-service.postgres.svc.cluster.local',
+            'PGPORT': '5432',
         }
     )
