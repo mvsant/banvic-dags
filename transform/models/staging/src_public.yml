@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: raw_source
+    schema: public
+    tables:
+      - name: agencias
+      - name: colaboradores
+      - name: colaborador_agencia
