@@ -114,6 +114,7 @@ with DAG(
         namespace='meltano',
         image='meltano-pipeline:v1',
         cmds=["/bin/sh", "-c"],
+        # --- FIXED: Added meltano invoke dbt-postgres:test at the end ---
         arguments=[
             """
             mkdir -p /project/transform/models
@@ -128,6 +129,7 @@ EOF
 
             meltano --environment=prod invoke dbt-postgres:compile
             meltano --environment=prod invoke dbt-postgres:run
+            meltano --environment=prod invoke dbt-postgres:test
             """
         ],
         secrets=[secret_user, secret_password, secret_db],
