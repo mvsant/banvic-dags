@@ -204,9 +204,7 @@ models:
           - unique
 EOF
 
-            # 6. Point Meltano to the profiles folder and run!
-            meltano --environment=prod config dbt-postgres set profiles_dir /project/transform/profiles/postgres
-            
+            # 6. Execute compilation, modeling, and data testing pipelines sequentially
             meltano --environment=prod invoke dbt-postgres:compile
             meltano --environment=prod invoke dbt-postgres:run
             meltano --environment=prod invoke dbt-postgres:test
@@ -216,9 +214,12 @@ EOF
         env_vars={
             'TARGET_POSTGRES_HOST': 'postgres-service.postgres.svc.cluster.local',
             'TARGET_POSTGRES_PORT': '5432',
+            # --- FIXED: Direct Environment Override passes profile constraints straight to dbt ---
+            'DBT_PROFILES_DIR': '/project/transform/profiles/postgres',
         },
         retries=2,
         retry_delay=timedelta(minutes=3),
     )
+
     # Trigger dbt models execution only after the final ingestion task has completely finished
     sync_tasks["transacoes"] >> run_dbt
