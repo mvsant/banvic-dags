@@ -6,6 +6,7 @@ from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperato
 from airflow.providers.cncf.kubernetes.secret import Secret
 from airflow.models.baseoperator import cross_downstream
 from kubernetes.client import models as k8s
+from airflow.sdk.bases.operator import cross_downstream
 
 # --- Error Handling Callback Routine ---
 def on_task_failure_callback(context):
@@ -143,25 +144,32 @@ sources:
 EOF
 
             cat << 'EOF' > /project/transform/models/staging/stg_agencias.sql
+{% raw %}
 {{ config(materialized='view') }}
 select cod_agencia, nome as nome_agencia, cidade as cidade_agencia, uf as uf_agencia, tipo_agencia
 from {{ source('raw_source', 'agencias') }}
+{% endraw %}
 EOF
 
             cat << 'EOF' > /project/transform/models/staging/stg_colaboradores.sql
+{% raw %}
 {{ config(materialized='view') }}
 select cod_colaborador, primeiro_nome, ultimo_nome, email
 from {{ source('raw_source', 'colaboradores') }}
+{% endraw %}
 EOF
 
             cat << 'EOF' > /project/transform/models/staging/stg_colaborador_agencia.sql
+{% raw %}
 {{ config(materialized='view') }}
 select cod_colaborador, cod_agencia
 from {{ source('raw_source', 'colaborador_agencia') }}
+{% endraw %}
 EOF
 
             # 4. Create your core relationship join transformation model
             cat << 'EOF' > /project/transform/models/marts/fct_colaboradores_agencias.sql
+{% raw %}
 {{ config(materialized='table') }}
 with agencias as (select * from {{ ref('stg_agencias') }}),
 colaboradores as (select * from {{ ref('stg_colaboradores') }}),
@@ -181,6 +189,7 @@ select
 from colaborador_agencia ca
 inner join colaboradores c on ca.cod_colaborador = c.cod_colaborador
 inner join agencias a on ca.cod_agencia = a.cod_agencia
+{% endraw %}
 EOF
 
             # 5. Create your native testing logic mappings
@@ -211,6 +220,5 @@ EOF
         retries=2,
         retry_delay=timedelta(minutes=3),
     )
-
     # Trigger dbt models execution only after the final ingestion task has completely finished
     sync_tasks["transacoes"] >> run_dbt
