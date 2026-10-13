@@ -4,6 +4,7 @@ import logging
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.providers.cncf.kubernetes.secret import Secret
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.models.baseoperator import cross_downstream
 from kubernetes.client import models as k8s
 from airflow.sdk.bases.operator import cross_downstream
@@ -108,118 +109,13 @@ with DAG(
     # Tier 2 parallel flows consolidate into the final raw ledger step
     [sync_tasks["clientes"], sync_tasks["contas"], sync_tasks["propostas_credito"]] >> sync_tasks["transacoes"]
 
-    # 3. Final dbt Transformations Task
-    run_dbt = KubernetesPodOperator(
-        task_id='run_dbt',
-        name='meltano-dbt-worker',
-        namespace='meltano',
-        image='meltano-pipeline:v1',
-        cmds=["/bin/sh", "-c"],
-        arguments=[
-            """
-            # 1. Create the entire directory structure cleanly
-            mkdir -p /project/transform/models/staging
-            mkdir -p /project/transform/models/marts
-            mkdir -p /project/transform/profiles/postgres
-            
-            # 2. Automatically generate the core dbt_project.yml file
-            cat << 'EOF' > /project/transform/dbt_project.yml
-name: 'my_project'
-version: '1.0.0'
-config-version: 2
-profile: 'postgres'
-model-paths: ['models']
-EOF
-
-            # 3. Create the staging views layout files
-            cat << 'EOF' > /project/transform/models/staging/src_public.yml
-version: 2
-sources:
-  - name: raw_source
-    schema: public
-    tables:
-      - name: agencias
-      - name: colaboradores
-      - name: colaborador_agencia
-EOF
-
-            cat << 'EOF' > /project/transform/models/staging/stg_agencias.sql
-{% raw %}
-{{ config(materialized='view') }}
-select cod_agencia, nome as nome_agencia, cidade as cidade_agencia, uf as uf_agencia, tipo_agencia
-from {{ source('raw_source', 'agencias') }}
-{% endraw %}
-EOF
-
-            cat << 'EOF' > /project/transform/models/staging/stg_colaboradores.sql
-{% raw %}
-{{ config(materialized='view') }}
-select cod_colaborador, primeiro_nome, ultimo_nome, email
-from {{ source('raw_source', 'colaboradores') }}
-{% endraw %}
-EOF
-
-            cat << 'EOF' > /project/transform/models/staging/stg_colaborador_agencia.sql
-{% raw %}
-{{ config(materialized='view') }}
-select cod_colaborador, cod_agencia
-from {{ source('raw_source', 'colaborador_agencia') }}
-{% endraw %}
-EOF
-
-            # 4. Create your core relationship join transformation model
-            cat << 'EOF' > /project/transform/models/marts/fct_colaboradores_agencias.sql
-{% raw %}
-{{ config(materialized='table') }}
-with agencias as (select * from {{ ref('stg_agencias') }}),
-colaboradores as (select * from {{ ref('stg_colaboradores') }}),
-colaborador_agencia as (select * from {{ ref('stg_colaborador_agencia') }})
-select
-    ca.cod_colaborador || '-' || ca.cod_agencia as relationship_id,
-    ca.cod_colaborador,
-    ca.cod_agencia,
-    c.primeiro_nome,
-    c.ultimo_nome,
-    c.email,
-    a.nome_agencia,
-    a.cidade_agencia,
-    a.uf_agencia,
-    a.tipo_agencia,
-    now() as transformed_at
-from colaborador_agencia ca
-inner join colaboradores c on ca.cod_colaborador = c.cod_colaborador
-inner join agencias a on ca.cod_agencia = a.cod_agencia
-{% endraw %}
-EOF
-
-            # 5. Create your native testing logic mappings
-            cat << 'EOF' > /project/transform/models/marts/schema.yml
-version: 2
-models:
-  - name: fct_colaboradores_agencias
-    columns:
-      - name: relationship_id
-        tests:
-          - not_null
-          - unique
-EOF
-
-            # 6. Execute compilation, modeling, and data testing pipelines sequentially
-            meltano --environment=prod invoke dbt-postgres:compile
-            meltano --environment=prod invoke dbt-postgres:run
-            meltano --environment=prod invoke dbt-postgres:test
-            """
-        ],
-        secrets=[secret_user, secret_password, secret_db],
-        env_vars={
-            'TARGET_POSTGRES_HOST': 'postgres-service.postgres.svc.cluster.local',
-            'TARGET_POSTGRES_PORT': '5432',
-            # --- FIXED: Direct Environment Override passes profile constraints straight to dbt ---
-            'DBT_PROFILES_DIR': '/project/transform/profiles/postgres',
-        },
-        retries=2,
-        retry_delay=timedelta(minutes=3),
+    # --- THE SEQUENTIAL LINK ---
+    # Trigger the downstream transformation DAG automatically only after the final sync completes
+    trigger_transformations = TriggerDagRunOperator(
+        task_id="trigger_dbt_transformations",
+        trigger_dag_id="dbt_join_1", # Must match the DAG ID below
+        wait_for_completion=False, # Set to True if you want this DAG to wait for dbt to finish
     )
 
     # Trigger dbt models execution only after the final ingestion task has completely finished
-    sync_tasks["transacoes"] >> run_dbt
+    sync_tasks["transacoes"] >> trigger_transformations
