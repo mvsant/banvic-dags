@@ -114,11 +114,14 @@ with DAG(
         namespace='meltano',
         image='meltano-pipeline:v1',
         cmds=["/bin/sh", "-c"],
-        # --- FIXED: Added meltano invoke dbt-postgres:test at the end ---
         arguments=[
             """
-            mkdir -p /project/transform/models
+            # 1. Create the entire directory structure cleanly
+            mkdir -p /project/transform/models/staging
+            mkdir -p /project/transform/models/marts
+            mkdir -p /project/transform/profiles/postgres
             
+            # 2. Automatically generate the core dbt_project.yml file
             cat << 'EOF' > /project/transform/dbt_project.yml
 name: 'my_project'
 version: '1.0.0'
@@ -127,6 +130,74 @@ profile: 'postgres'
 model-paths: ['models']
 EOF
 
+            # 3. Create the staging views layout files
+            cat << 'EOF' > /project/transform/models/staging/src_public.yml
+version: 2
+sources:
+  - name: raw_source
+    schema: public
+    tables:
+      - name: agencias
+      - name: colaboradores
+      - name: colaborador_agencia
+EOF
+
+            cat << 'EOF' > /project/transform/models/staging/stg_agencias.sql
+{{ config(materialized='view') }}
+select cod_agencia, nome as nome_agencia, cidade as cidade_agencia, uf as uf_agencia, tipo_agencia
+from {{ source('raw_source', 'agencias') }}
+EOF
+
+            cat << 'EOF' > /project/transform/models/staging/stg_colaboradores.sql
+{{ config(materialized='view') }}
+select cod_colaborador, primeiro_nome, ultimo_nome, email
+from {{ source('raw_source', 'colaboradores') }}
+EOF
+
+            cat << 'EOF' > /project/transform/models/staging/stg_colaborador_agencia.sql
+{{ config(materialized='view') }}
+select cod_colaborador, cod_agencia
+from {{ source('raw_source', 'colaborador_agencia') }}
+EOF
+
+            # 4. Create your core relationship join transformation model
+            cat << 'EOF' > /project/transform/models/marts/fct_colaboradores_agencias.sql
+{{ config(materialized='table') }}
+with agencias as (select * from {{ ref('stg_agencias') }}),
+colaboradores as (select * from {{ ref('stg_colaboradores') }}),
+colaborador_agencia as (select * from {{ ref('stg_colaborador_agencia') }})
+select
+    ca.cod_colaborador || '-' || ca.cod_agencia as relationship_id,
+    ca.cod_colaborador,
+    ca.cod_agencia,
+    c.primeiro_nome,
+    c.ultimo_nome,
+    c.email,
+    a.nome_agencia,
+    a.cidade_agencia,
+    a.uf_agencia,
+    a.tipo_agencia,
+    now() as transformed_at
+from colaborador_agencia ca
+inner join colaboradores c on ca.cod_colaborador = c.cod_colaborador
+inner join agencias a on ca.cod_agencia = a.cod_agencia
+EOF
+
+            # 5. Create your native testing logic mappings
+            cat << 'EOF' > /project/transform/models/marts/schema.yml
+version: 2
+models:
+  - name: fct_colaboradores_agencias
+    columns:
+      - name: relationship_id
+        tests:
+          - not_null
+          - unique
+EOF
+
+            # 6. Point Meltano to the profiles folder and run!
+            meltano --environment=prod config dbt-postgres set profiles_dir /project/transform/profiles/postgres
+            
             meltano --environment=prod invoke dbt-postgres:compile
             meltano --environment=prod invoke dbt-postgres:run
             meltano --environment=prod invoke dbt-postgres:test
