@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: meltano-pvc-inspector
+  namespace: meltano
+spec:
+  volumes:
+    - name: csv-ingestion-volume
+      persistentVolumeClaim: # <-- FIXED: Capital V and C
+        claimName: meltano-csv-pvc
+  containers:
+    - name: base
+      image: meltano-pipeline:v1
+      command: ["/bin/sh", "-c"]
+      args: ["echo 'Meltano inspector active' && sleep 300"]
+      volumeMounts:
+        - name: csv-ingestion-volume
+          mountPath: /project/extract # <-- FIXED: Capital P
+  restartPolicy: Never
