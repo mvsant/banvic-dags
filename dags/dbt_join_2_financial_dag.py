@@ -18,7 +18,7 @@ secret_db = Secret(deploy_type="env", deploy_target="PGDATABASE", secret="postgr
 with DAG(
     'dbt_join_2_financials',
     default_args=default_args,
-    schedule=None, # Triggered sequentially by dbt_join_1
+    schedule=None, # Triggered sequentially by join_1_account_maturity
     catchup=False,
 ) as dag:
 

@@ -50,9 +50,9 @@ ENTITIES = {
 }
 
 with DAG(
-    'dbt_secure_modular_resilient_pipeline',
+    'extract_pipeline',
     default_args=default_args,
-    schedule="0 * * * *",
+    schedule=None,
     catchup=False,
 ) as dag:
 
@@ -113,7 +113,7 @@ with DAG(
     # Trigger the downstream transformation DAG automatically only after the final sync completes
     trigger_transformations = TriggerDagRunOperator(
         task_id="trigger_dbt_transformations",
-        trigger_dag_id="dbt_join_1", # Must match the DAG ID below
+        trigger_dag_id="join_1_account_maturity", # Must match the DAG ID below
         wait_for_completion=False, # Set to True if you want this DAG to wait for dbt to finish
     )
 

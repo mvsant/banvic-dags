@@ -16,7 +16,7 @@ secret_password = Secret(deploy_type="env", deploy_target="PGPASSWORD", secret="
 secret_db = Secret(deploy_type="env", deploy_target="PGDATABASE", secret="postgres-credentials", key="POSTGRES_DB")
 
 with DAG(
-    'dbt_join_1', # Kept the exact same name so your Ingestion Trigger Operator works natively
+    'join_1_account_maturity', # Kept the exact same name so your Ingestion Trigger Operator works natively
     default_args=default_args,
     schedule=None,
     catchup=False,
@@ -88,7 +88,7 @@ with DAG(
         }
     )
 
-    # Append this task at the bottom of dbt_join_1 inside its DAG context:
+    # Append this task at the bottom of join_1_account_maturity inside its DAG context:
     trigger_financials = TriggerDagRunOperator(
         task_id="trigger_financial_analytics",
         trigger_dag_id="dbt_join_2_financials", # Triggers the brand-new DAG above
