@@ -52,7 +52,7 @@ ENTITIES = {
 with DAG(
     'dbt_secure_modular_resilient_pipeline',
     default_args=default_args,
-    schedule=None,
+    schedule="0 * * * *",
     catchup=False,
 ) as dag:
 
