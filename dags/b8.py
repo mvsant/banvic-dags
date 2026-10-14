@@ -25,17 +25,18 @@ with DAG(
         task_id='run_dbt_left_join',
         name='postgres-native-left-join',
         namespace='meltano',
-        image='postgres:alpine', # --- Using a standard native PostgreSQL client image ---
+        image='postgres:alpine',
         cmds=["/bin/sh", "-c"],
         arguments=[
             """
-            echo "Connecting to PostgreSQL cluster and executing standard relational model compilation..."
+            echo "Connecting to PostgreSQL cluster and executing analytical layer compilation..."
             
             psql -h $PGHOST -p $PGPORT -c "
-            -- Drop old relation structure if it already exists to guarantee idempotency
+            -- =========================================================================
+            -- STEP 1: Rebuild our core relationship table (Idempotent base layer)
+            -- =========================================================================
             DROP TABLE IF EXISTS public.fct_colaboradores_left_join;
 
-            -- Compile the standard LEFT JOIN directly using PostgreSQL's core engine
             CREATE TABLE public.fct_colaboradores_left_join AS
             SELECT 
                 c.cod_colaborador, 
@@ -47,9 +48,36 @@ with DAG(
             FROM public.colaboradores c
             LEFT JOIN public.colaborador_agencia ca 
                 ON c.cod_colaborador = ca.cod_colaborador;
+
+            -- =========================================================================
+            -- STEP 2: Build the new Analytical Performance Mart (Our new feature!)
+            -- =========================================================================
+            DROP TABLE IF EXISTS public.agg_agencias_performance;
+
+            CREATE TABLE public.agg_agencias_performance AS
+            SELECT
+                a.cod_agencia,
+                a.nome AS nome_agencia,
+                a.cidade,
+                a.uf,
+                a.tipo_agencia,
+                -- Dynamic Metric 1: Safe headcount aggregation mapping
+                COUNT(ca.cod_colaborador) AS total_colaboradores,
+                -- Dynamic Metric 2: Conditional analytical metadata categorization
+                CASE 
+                    WHEN a.data_abertura < '2015-01-01' THEN 'Legacy Branch'
+                    ELSE 'Modern Expansion'
+                END AS operational_maturity,
+                NOW() AS compiled_at
+            FROM public.agencias a
+            -- Left join ensures we catch newly opened branches even if zero staff are assigned yet
+            LEFT JOIN public.colaborador_agencia ca 
+                ON a.cod_agencia = ca.cod_agencia
+            GROUP BY 
+                a.cod_agencia, a.nome, a.cidade, a.uf, a.tipo_agencia, a.data_abertura;
             "
             
-            echo "SUCCESS: Relational transformation table compiled perfectly!"
+            echo "SUCCESS: Both core relationship and analytics performance mart tables compiled perfectly!"
             """
         ],
         secrets=[secret_user, secret_password, secret_db],
@@ -58,3 +86,4 @@ with DAG(
             'PGPORT': '5432',
         }
     )
+
