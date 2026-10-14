@@ -1,5 +1,6 @@
 from datetime import datetime
 from airflow import DAG
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.providers.cncf.kubernetes.secret import Secret
 
@@ -86,4 +87,14 @@ with DAG(
             'PGPORT': '5432',
         }
     )
+
+    # Append this task at the bottom of dbt_join_1 inside its DAG context:
+    trigger_financials = TriggerDagRunOperator(
+        task_id="trigger_financial_analytics",
+        trigger_dag_id="dbt_join_2_financials", # Triggers the brand-new DAG above
+        wait_for_completion=False,
+    )
+
+    # Chain it sequentially after the first join task completes
+    run_native_sql_join >> trigger_financials
 
